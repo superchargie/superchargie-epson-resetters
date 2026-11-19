@@ -38,8 +38,12 @@ export function DiagnosticPanel({ onJumpToCatalog, onJumpToRemote }: DiagnosticP
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-      <div className="lg:col-span-5 space-y-2" role="tablist" aria-label="Epson printer symptoms">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
+      <div
+        className="lg:col-span-5 flex lg:block gap-2.5 lg:space-y-2 overflow-x-auto pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0 snap-x snap-mandatory"
+        role="tablist"
+        aria-label="Epson printer symptoms"
+      >
         {DIAGNOSTIC_SYMPTOMS.map((symptom, index) => {
           const isActive = symptom.id === current.id;
           return (
@@ -49,10 +53,10 @@ export function DiagnosticPanel({ onJumpToCatalog, onJumpToRemote }: DiagnosticP
               role="tab"
               aria-selected={isActive}
               onClick={() => setActiveId(symptom.id)}
-              className={`w-full text-left rounded-lg border px-4 py-4 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399] ${
+              className={`min-w-[235px] sm:min-w-[260px] lg:min-w-0 lg:w-full snap-start text-left rounded-lg border px-4 py-3.5 lg:py-4 transition-colors shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399] ${
                 isActive
                   ? 'border-[#003399] bg-white shadow-xs'
-                  : 'border-slate-200 bg-white/60 hover:bg-white hover:border-slate-300'
+                  : 'border-slate-200 bg-white/70 hover:bg-white hover:border-slate-300'
               }`}
             >
               <div className="flex items-baseline justify-between gap-3">
@@ -68,7 +72,7 @@ export function DiagnosticPanel({ onJumpToCatalog, onJumpToRemote }: DiagnosticP
 
       <div
         role="tabpanel"
-        className="lg:col-span-7 rounded-xl border border-slate-200 bg-white p-6 sm:p-8"
+        className="lg:col-span-7 rounded-xl border border-slate-200 bg-white p-5 sm:p-8"
       >
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
           {renderSeverityIndicator(current.severity, current.severityLabel)}

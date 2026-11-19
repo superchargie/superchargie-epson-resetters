@@ -6,6 +6,7 @@ import {
   CreditCard,
   Download,
   ExternalLink,
+  FileText,
   Loader2,
   MessageCircle,
   Minus,
@@ -14,6 +15,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { type ResetterPackage } from '../data/epsonResetters';
 import {
   generateOrderId,
   triggerResetterPackageDownload,
@@ -38,8 +40,10 @@ interface CartCheckoutDrawerProps {
   onClose: () => void;
   cart: CartItem[];
   orders: CompletedOrder[];
+  allResetters: ResetterPackage[];
   currentUser: User | null;
   isAdmin: boolean;
+  authError: string | null;
   onSignIn: () => Promise<void>;
   onSignOut: () => Promise<void>;
   onOpenAdmin: () => void;
@@ -54,8 +58,10 @@ export function CartCheckoutDrawer({
   onClose,
   cart,
   orders,
+  allResetters,
   currentUser,
   isAdmin,
+  authError,
   onSignIn,
   onSignOut,
   onOpenAdmin,
@@ -240,16 +246,16 @@ export function CartCheckoutDrawer({
       onClick={onClose}
     >
       <div
-        className="flex h-full w-full max-w-lg flex-col bg-white shadow-2xl border-l border-slate-200"
+        className="flex h-[100dvh] w-full max-w-lg flex-col bg-white shadow-2xl border-l border-slate-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drawer Header */}
-        <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 sm:px-6 py-3.5 sm:py-4">
           <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
             <button
               type="button"
               onClick={() => setActiveTab('cart')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 activeTab === 'cart'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -260,7 +266,7 @@ export function CartCheckoutDrawer({
             <button
               type="button"
               onClick={() => setActiveTab('orders')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
                 activeTab === 'orders'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -274,14 +280,14 @@ export function CartCheckoutDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close drawer"
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Account Bar inside Drawer */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-6 py-2.5 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 sm:px-6 py-2.5 text-xs">
           {currentUser ? (
             <>
               <span className="text-slate-600 truncate max-w-[230px]">
@@ -323,8 +329,17 @@ export function CartCheckoutDrawer({
           )}
         </div>
 
+        {authError && (
+          <div
+            role="alert"
+            className="border-b border-rose-200 bg-rose-50 px-6 py-2.5 text-xs text-rose-800 leading-relaxed"
+          >
+            {authError}
+          </div>
+        )}
+
         {/* Drawer Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           {activeTab === 'cart' ? (
             cart.length === 0 ? (
               <div className="py-16 text-center">
@@ -470,7 +485,7 @@ export function CartCheckoutDrawer({
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
                         placeholder="e.g. Grace Wanjiku"
-                        className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm text-slate-900 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
+                        className="w-full min-h-[44px] rounded-lg border border-slate-300 px-3.5 py-2 text-base sm:text-sm text-slate-900 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
                       />
                     </div>
 
@@ -488,7 +503,7 @@ export function CartCheckoutDrawer({
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="0712 345 678"
-                          className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm font-mono text-slate-900 placeholder:font-sans focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
+                          className="w-full min-h-[44px] rounded-lg border border-slate-300 px-3.5 py-2 text-base sm:text-sm font-mono text-slate-900 placeholder:font-sans focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
                         />
                       </div>
                       <div>
@@ -504,7 +519,7 @@ export function CartCheckoutDrawer({
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="you@example.com"
-                          className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm text-slate-900 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
+                          className="w-full min-h-[44px] rounded-lg border border-slate-300 px-3.5 py-2 text-base sm:text-sm text-slate-900 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
                         />
                       </div>
                     </div>
@@ -523,7 +538,7 @@ export function CartCheckoutDrawer({
                           value={anydeskId}
                           onChange={(e) => setAnydeskId(e.target.value)}
                           placeholder="e.g. 482 910 331"
-                          className="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm font-mono text-slate-900 placeholder:font-sans focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
+                          className="w-full min-h-[44px] rounded-lg border border-slate-300 px-3.5 py-2 text-base sm:text-sm font-mono text-slate-900 placeholder:font-sans focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
                         />
                       </div>
                     )}
@@ -733,32 +748,82 @@ export function CartCheckoutDrawer({
                     )}
 
                     <ul className="space-y-2">
-                      {order.items.map((item) => (
-                        <li
-                          key={`${order.orderId}-${item.key}`}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3.5 py-2.5"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-slate-900 truncate">
-                              Epson {item.model}
-                            </p>
-                            <p className="text-[11px] text-slate-500">
-                              {item.type === 'download'
-                                ? 'Self-Download AdjProg'
-                                : 'AnyDesk Remote Ticket'}
-                            </p>
-                          </div>
+                      {order.items.map((item) => {
+                        const livePkg = allResetters.find((p) => p.id === item.packageId);
+                        const resolvedDownloadUrl =
+                          livePkg?.downloadUrl?.trim() || item.downloadUrl?.trim() || '';
+                        const resolvedPdfUrl =
+                          livePkg?.instructionsPdfUrl?.trim() ||
+                          item.instructionsPdfUrl?.trim() ||
+                          '';
 
-                          <button
-                            type="button"
-                            onClick={() => triggerResetterPackageDownload(order, item)}
-                            className="inline-flex items-center gap-1.5 rounded-md bg-[#003399] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#00287A] transition-colors whitespace-nowrap shrink-0"
+                        return (
+                          <li
+                            key={`${order.orderId}-${item.key}`}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3.5 py-2.5"
                           >
-                            <Download className="h-3.5 w-3.5" />
-                            {item.type === 'download' ? 'Download' : 'Ticket'}
-                          </button>
-                        </li>
-                      ))}
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-slate-900 truncate">
+                                Epson {item.model}
+                              </p>
+                              <p className="text-[11px] text-slate-500">
+                                {item.type === 'download'
+                                  ? 'Self-Download AdjProg'
+                                  : 'AnyDesk Remote Ticket'}
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                              {item.type === 'download' && resolvedDownloadUrl ? (
+                                <a
+                                  href={resolvedDownloadUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 rounded-md bg-[#003399] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#00287A] transition-colors whitespace-nowrap"
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                  Download File
+                                </a>
+                              ) : null}
+
+                              {resolvedPdfUrl ? (
+                                <a
+                                  href={resolvedPdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                                    item.type === 'download' && resolvedDownloadUrl
+                                      ? 'border border-slate-300 bg-white text-slate-800 hover:border-[#003399] hover:text-[#003399]'
+                                      : 'bg-[#003399] text-white hover:bg-[#00287A]'
+                                  }`}
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                  PDF Guide
+                                </a>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    triggerResetterPackageDownload(
+                                      order,
+                                      item,
+                                      resolvedDownloadUrl || undefined
+                                    )
+                                  }
+                                  className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                                    item.type === 'download' && resolvedDownloadUrl
+                                      ? 'border border-slate-300 bg-white text-slate-800 hover:border-[#003399] hover:text-[#003399]'
+                                      : 'bg-[#003399] text-white hover:bg-[#00287A]'
+                                  }`}
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                  {item.type === 'download' ? 'PDF Guide' : 'PDF Ticket'}
+                                </button>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
                     </ul>
 
                     <a

@@ -53,14 +53,14 @@ service cloud.firestore {
       && data.keys().hasOnly([
         'title', 'series', 'seriesLabel', 'primaryModels', 'allSupportedModels',
         'priceKsh', 'remoteResetKsh', 'osSupport', 'connection', 'fileSize',
-        'countersSupported', 'notes', 'downloadUrl', 'popular', 'createdAt', 'updatedAt'
+        'countersSupported', 'notes', 'downloadUrl', 'instructionsPdfUrl', 'popular', 'createdAt', 'updatedAt'
       ])
       && data.title is string && data.title.size() >= 4 && data.title.size() <= 140
       && data.series in ['ecotank-l', 'photo-wide', 'monochrome-m', 'et-wf-legacy']
       && data.seriesLabel is string && data.seriesLabel.size() >= 2 && data.seriesLabel.size() <= 40
       && data.primaryModels is list && data.primaryModels.size() >= 1 && data.primaryModels.size() <= 8
       && data.primaryModels[0] is string && data.primaryModels[0].size() <= 30
-      && data.allSupportedModels is list && data.allSupportedModels.size() >= 1 && data.allSupportedModels.size() <= 25
+      && data.allSupportedModels is list && data.allSupportedModels.size() >= 1 && data.allSupportedModels.size() <= 30
       && data.allSupportedModels[0] is string && data.allSupportedModels[0].size() <= 30
       && data.priceKsh is number && data.priceKsh >= 50 && data.priceKsh <= 50000
       && data.remoteResetKsh is number && data.remoteResetKsh >= 50 && data.remoteResetKsh <= 50000
@@ -71,6 +71,7 @@ service cloud.firestore {
       && data.countersSupported[0] is string && data.countersSupported[0].size() <= 60
       && data.notes is string && data.notes.size() >= 4 && data.notes.size() <= 500
       && (!('downloadUrl' in data) || (data.downloadUrl is string && data.downloadUrl.size() <= 500))
+      && (!('instructionsPdfUrl' in data) || (data.instructionsPdfUrl is string && data.instructionsPdfUrl.size() <= 500))
       && (!('popular' in data) || data.popular is bool)
       && data.createdAt is timestamp
       && data.updatedAt is timestamp;

@@ -1,8 +1,10 @@
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
+  getRedirectResult,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   type User,
 } from 'firebase/auth';
@@ -20,6 +22,7 @@ import firebaseConfig from '../../firebase-applet-config.json';
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
@@ -94,10 +97,64 @@ async function testConnection() {
 }
 void testConnection();
 
-export async function signInWithGoogle(): Promise<User> {
-  const result = await signInWithPopup(auth, googleProvider);
-  await syncCustomerProfile(result.user);
-  return result.user;
+export function formatAuthError(error: unknown): string {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code?: unknown }).code || '')
+      : '';
+
+  if (code === 'auth/unauthorized-domain') {
+    const host = window.location.hostname;
+    return `Domain "${host}" is not authorized in Firebase Authentication yet. Add "${host}" in Firebase Console -> Authentication -> Settings -> Authorized domains (Project: ${FIREBASE_PROJECT_ID}).`;
+  }
+  if (code === 'auth/popup-blocked') {
+    return 'Your browser blocked the Google sign-in popup. Allow popups for this site and try again.';
+  }
+  if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+    return 'Google sign-in window was closed before completing.';
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return 'Google Sign-In is disabled in Firebase Console. Enable Google under Authentication -> Sign-in method.';
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return 'Could not complete Google Sign-In. Please try again.';
+}
+
+export async function completeRedirectSignInIfPresent(): Promise<User | null> {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result?.user) {
+      void syncCustomerProfile(result.user);
+      return result.user;
+    }
+  } catch (error) {
+    console.warn('Redirect sign-in check:', formatAuthError(error));
+  }
+  return null;
+}
+
+export async function signInWithGoogle(): Promise<User | null> {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    void syncCustomerProfile(result.user);
+    return result.user;
+  } catch (error) {
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? String((error as { code?: unknown }).code || '')
+        : '';
+
+    // On standalone custom domains (not inside an iframe), fall back to redirect if popups are blocked
+    const isTopWindow = window.self === window.top;
+    if (code === 'auth/popup-blocked' && isTopWindow) {
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
+
+    throw new Error(formatAuthError(error));
+  }
 }
 
 export async function signOutUser(): Promise<void> {

@@ -35,24 +35,24 @@ export function ResetterModal({ pkg, onClose, onAddToCart }: ResetterModalProps)
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/55 p-0 sm:p-4 backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
       aria-labelledby="resetter-modal-title"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden max-h-[90vh] flex flex-col"
+        className="w-full max-w-2xl rounded-t-2xl sm:rounded-xl border-t sm:border border-slate-200 bg-white shadow-xl overflow-hidden max-h-[92dvh] sm:max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
-          <div>
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="min-w-0">
             <p className="text-xs font-medium text-slate-500">
               {pkg.seriesLabel} · {pkg.osSupport} · {pkg.fileSize}
             </p>
             <h3
               id="resetter-modal-title"
-              className="mt-1 text-xl font-bold tracking-tight text-slate-900"
+              className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-slate-900"
             >
               {pkg.title}
             </h3>
@@ -61,14 +61,14 @@ export function ResetterModal({ pkg, onClose, onAddToCart }: ResetterModalProps)
             type="button"
             onClick={onClose}
             aria-label="Close package details"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399] transition-colors"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399] transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="overflow-y-auto px-6 py-6 space-y-6">
-          <p className="text-[15px] leading-relaxed text-slate-600">{pkg.notes}</p>
+        <div className="overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 space-y-5 sm:space-y-6">
+          <p className="text-sm sm:text-[15px] leading-relaxed text-slate-600">{pkg.notes}</p>
 
           <div>
             <p className="text-sm font-semibold text-slate-900 mb-2.5">
@@ -82,7 +82,7 @@ export function ResetterModal({ pkg, onClose, onAddToCart }: ResetterModalProps)
                     key={model}
                     type="button"
                     onClick={() => setSelectedModel(model)}
-                    className={`px-3 py-2 text-xs font-mono font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399] ${
+                    className={`min-h-[40px] px-3 py-2 text-xs font-mono font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399] ${
                       isSelected
                         ? 'border-[#003399] bg-[#003399] text-white'
                         : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white'
@@ -109,10 +109,10 @@ export function ResetterModal({ pkg, onClose, onAddToCart }: ResetterModalProps)
               >
                 <div className="flex w-full items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <Download className="h-4 w-4 text-[#003399]" />
+                    <Download className="h-4 w-4 text-[#003399] shrink-0" />
                     Printer Resetter (AdjProg)
                   </span>
-                  <span className="font-mono text-sm font-semibold text-slate-900 tabular-nums">
+                  <span className="font-mono text-sm font-semibold text-slate-900 tabular-nums shrink-0">
                     KSh {pkg.priceKsh}
                   </span>
                 </div>
@@ -132,10 +132,10 @@ export function ResetterModal({ pkg, onClose, onAddToCart }: ResetterModalProps)
               >
                 <div className="flex w-full items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <Monitor className="h-4 w-4 text-[#003399]" />
+                    <Monitor className="h-4 w-4 text-[#003399] shrink-0" />
                     AnyDesk Remote Reset
                   </span>
-                  <span className="font-mono text-sm font-semibold text-slate-900 tabular-nums">
+                  <span className="font-mono text-sm font-semibold text-slate-900 tabular-nums shrink-0">
                     KSh {pkg.remoteResetKsh}
                   </span>
                 </div>
@@ -160,24 +160,24 @@ export function ResetterModal({ pkg, onClose, onAddToCart }: ResetterModalProps)
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
-          <div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-4 py-4 sm:px-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-center justify-between sm:block">
             <p className="text-xs text-slate-500">
-              Selected: Epson {selectedModel} · {mode === 'download' ? 'Resetter Utility' : 'AnyDesk Remote'}
+              Epson {selectedModel} · {mode === 'download' ? 'Resetter' : 'AnyDesk'}
             </p>
             <p className="font-mono text-base font-bold text-slate-900 tabular-nums">
-              Total: KSh {activePrice}
+              KSh {activePrice}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="grid grid-cols-2 sm:flex items-center gap-2.5">
             <button
               type="button"
               onClick={() => {
                 onAddToCart(pkg, selectedModel, mode, false);
                 onClose();
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-100 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
+              className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 sm:px-4 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-100 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
             >
               <ShoppingBag className="h-4 w-4" />
               Add to Cart
@@ -189,9 +189,9 @@ export function ResetterModal({ pkg, onClose, onAddToCart }: ResetterModalProps)
                 onAddToCart(pkg, selectedModel, mode, true);
                 onClose();
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#003399] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#00287A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
+              className="min-h-[44px] inline-flex items-center justify-center gap-2 rounded-lg bg-[#003399] px-4 sm:px-5 py-2.5 text-sm font-medium text-white hover:bg-[#00287A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
             >
-              Checkout Now
+              Checkout
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>

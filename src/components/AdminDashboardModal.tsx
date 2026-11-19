@@ -1,11 +1,17 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import {
+  Check,
+  FileText,
+  Link2,
   MessageCircle,
+  Pencil,
   Plus,
+  RotateCcw,
+  Save,
+  Search,
   Trash2,
   X,
-  Check,
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import {
@@ -19,6 +25,7 @@ import {
 } from '../lib/firestoreStore';
 import {
   ANYDESK_RESET_PRICE_KSH,
+  RESETTER_CATALOG,
   RESETTER_PRICE_KSH,
   type ResetterPackage,
   type ResetterSeries,
@@ -27,7 +34,8 @@ import {
 interface AdminDashboardModalProps {
   isOpen: boolean;
   adminEmail: string;
-  customResetters: ResetterPackage[];
+  allResetters: ResetterPackage[];
+  firestoreResetterIds: Set<string>;
   onClose: () => void;
 }
 
@@ -39,10 +47,13 @@ const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
+const BUILT_IN_IDS = new Set(RESETTER_CATALOG.map((pkg) => pkg.id));
+
 export function AdminDashboardModal({
   isOpen,
   adminEmail,
-  customResetters,
+  allResetters,
+  firestoreResetterIds,
   onClose,
 }: AdminDashboardModalProps) {
   const [tab, setTab] = useState<'orders' | 'customers' | 'resetters'>('orders');
@@ -51,7 +62,9 @@ export function AdminDashboardModal({
   const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
 
-  // Add Resetter Form state
+  // Add / Edit Resetter Form state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [catalogSearch, setCatalogSearch] = useState('');
   const [title, setTitle] = useState('');
   const [series, setSeries] = useState<Exclude<ResetterSeries, 'all'>>('ecotank-l');
   const [seriesLabel, setSeriesLabel] = useState('EcoTank');
@@ -61,7 +74,9 @@ export function AdminDashboardModal({
   const [osSupport, setOsSupport] = useState('Windows 7 / 10 / 11');
   const [fileSize, setFileSize] = useState('3.8 MB (.zip)');
   const [downloadUrl, setDownloadUrl] = useState('');
+  const [instructionsPdfUrl, setInstructionsPdfUrl] = useState('');
   const [notes, setNotes] = useState('');
+  const [popular, setPopular] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [savingResetter, setSavingResetter] = useState(false);
@@ -104,11 +119,57 @@ export function AdminDashboardModal({
     return () => window.removeEventListener('keydown', handleKey);
   }, [isOpen, onClose]);
 
+  const filteredAdminCatalog = useMemo(() => {
+    const q = catalogSearch.trim().toLowerCase();
+    if (!q) return allResetters;
+    return allResetters.filter(
+      (pkg) =>
+        pkg.title.toLowerCase().includes(q) ||
+        pkg.seriesLabel.toLowerCase().includes(q) ||
+        pkg.allSupportedModels.some((m) => m.toLowerCase().includes(q))
+    );
+  }, [allResetters, catalogSearch]);
+
   if (!isOpen) return null;
 
   const totalRevenueKsh = orders
     .filter((o) => o.status === 'paid' || o.status === 'completed' || o.status === 'in_progress')
     .reduce((sum, o) => sum + (o.totalKsh || 0), 0);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setTitle('');
+    setSeries('ecotank-l');
+    setSeriesLabel('EcoTank');
+    setModelsInput('');
+    setPriceKsh(String(RESETTER_PRICE_KSH));
+    setRemoteResetKsh(String(ANYDESK_RESET_PRICE_KSH));
+    setOsSupport('Windows 7 / 10 / 11');
+    setFileSize('3.8 MB (.zip)');
+    setDownloadUrl('');
+    setInstructionsPdfUrl('');
+    setNotes('');
+    setPopular(false);
+    setFormError(null);
+  };
+
+  const handleStartEdit = (pkg: ResetterPackage) => {
+    setEditingId(pkg.id);
+    setTitle(pkg.title);
+    setSeries(pkg.series);
+    setSeriesLabel(pkg.seriesLabel);
+    setModelsInput(pkg.allSupportedModels.join(', '));
+    setPriceKsh(String(pkg.priceKsh));
+    setRemoteResetKsh(String(pkg.remoteResetKsh));
+    setOsSupport(pkg.osSupport);
+    setFileSize(pkg.fileSize);
+    setDownloadUrl(pkg.downloadUrl ?? '');
+    setInstructionsPdfUrl(pkg.instructionsPdfUrl ?? '');
+    setNotes(pkg.notes);
+    setPopular(Boolean(pkg.popular));
+    setFormError(null);
+    setFormSuccess(null);
+  };
 
   const handleStatusChange = async (order: FirestoreOrderRecord, newStatus: OrderStatus) => {
     setSavingOrderId(order.orderId);
@@ -134,7 +195,7 @@ export function AdminDashboardModal({
     }
   };
 
-  const handleAddResetter = async (e: FormEvent) => {
+  const handleSaveResetter = async (e: FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setFormSuccess(null);
@@ -159,11 +220,15 @@ export function AdminDashboardModal({
       return;
     }
 
+    const existingPkg = editingId ? allResetters.find((p) => p.id === editingId) : undefined;
+    const targetId = editingId ?? `${parsedModels[0].toLowerCase()}-${Date.now().toString().slice(-4)}`;
+    const isNewFirestoreDoc = !firestoreResetterIds.has(targetId);
+
     setSavingResetter(true);
     try {
       await adminSaveResetter(
         {
-          id: `${parsedModels[0].toLowerCase()}-${Date.now().toString().slice(-4)}`,
+          id: targetId,
           title: title.trim(),
           series,
           seriesLabel: seriesLabel.trim() || 'EcoTank',
@@ -172,20 +237,26 @@ export function AdminDashboardModal({
           priceKsh: Number(priceKsh) || RESETTER_PRICE_KSH,
           remoteResetKsh: Number(remoteResetKsh) || ANYDESK_RESET_PRICE_KSH,
           osSupport: osSupport.trim() || 'Windows 7 / 10 / 11',
-          connection: 'Direct USB 2.0',
+          connection: existingPkg?.connection || 'Direct USB 2.0',
           fileSize: fileSize.trim() || '3.8 MB (.zip)',
-          countersSupported: ['Main pad counter', 'Platen pad counter'],
+          countersSupported: existingPkg?.countersSupported || [
+            'Main pad counter',
+            'Platen pad counter',
+          ],
           notes: notes.trim(),
-          downloadUrl: downloadUrl.trim() || undefined,
-          popular: false,
+          downloadUrl: downloadUrl.trim(),
+          instructionsPdfUrl: instructionsPdfUrl.trim(),
+          popular,
         },
-        true
+        isNewFirestoreDoc
       );
-      setFormSuccess(`Added "${title.trim()}" to the live storefront catalog.`);
-      setTitle('');
-      setModelsInput('');
-      setDownloadUrl('');
-      setNotes('');
+
+      setFormSuccess(
+        editingId
+          ? `Saved changes to "${title.trim()}". Live catalog & automated links updated.`
+          : `Added "${title.trim()}" to the live storefront catalog.`
+      );
+      resetForm();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to save resetter.');
     } finally {
@@ -201,31 +272,42 @@ export function AdminDashboardModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-0 sm:p-4 backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
       aria-label="Admin dashboard"
       onClick={onClose}
     >
       <div
-        className="flex h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+        className="flex h-[100dvh] sm:h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-none sm:rounded-xl border-0 sm:border border-slate-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
-          <div>
-            <p className="text-xs text-slate-500">Admin Console · {adminEmail}</p>
-            <h2 className="text-lg font-bold tracking-tight text-slate-900">
-              Orders, Customers &amp; Resetter Catalog
-            </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 px-4 sm:px-6 py-3.5 sm:py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500 truncate">Admin Console · {adminEmail}</p>
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
+                Orders, Customers &amp; Catalog
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close admin dashboard"
+              className="flex sm:hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
+          <div className="flex items-center gap-3 max-w-full">
+            <div className="flex items-center gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setTab('orders')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+                className={`min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
                   tab === 'orders'
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -236,7 +318,7 @@ export function AdminDashboardModal({
               <button
                 type="button"
                 onClick={() => setTab('customers')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+                className={`min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
                   tab === 'customers'
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -247,13 +329,13 @@ export function AdminDashboardModal({
               <button
                 type="button"
                 onClick={() => setTab('resetters')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+                className={`min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
                   tab === 'resetters'
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Add / Manage Resetters ({customResetters.length})
+                Edit Catalog &amp; Links ({allResetters.length})
               </button>
             </div>
 
@@ -261,7 +343,7 @@ export function AdminDashboardModal({
               type="button"
               onClick={onClose}
               aria-label="Close admin dashboard"
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+              className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
             >
               <X className="h-5 w-5" />
             </button>
@@ -269,29 +351,29 @@ export function AdminDashboardModal({
         </div>
 
         {/* Summary Strip */}
-        <div className="grid grid-cols-3 gap-4 border-b border-slate-200 bg-slate-50 px-6 py-3.5 text-xs">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 border-b border-slate-200 bg-slate-50 px-4 sm:px-6 py-3 text-xs">
           <div>
-            <span className="text-slate-500">Total Orders</span>
-            <p className="font-mono text-base font-bold text-slate-900 tabular-nums">
+            <span className="text-[11px] sm:text-xs text-slate-500">Orders</span>
+            <p className="font-mono text-sm sm:text-base font-bold text-slate-900 tabular-nums">
               {orders.length}
             </p>
           </div>
           <div>
-            <span className="text-slate-500">Paid / Completed Revenue</span>
-            <p className="font-mono text-base font-bold text-[#003399] tabular-nums">
+            <span className="text-[11px] sm:text-xs text-slate-500">Paid Revenue</span>
+            <p className="font-mono text-sm sm:text-base font-bold text-[#003399] tabular-nums">
               KSh {totalRevenueKsh.toLocaleString()}
             </p>
           </div>
           <div>
-            <span className="text-slate-500">Registered Customers</span>
-            <p className="font-mono text-base font-bold text-slate-900 tabular-nums">
-              {customers.length}
+            <span className="text-[11px] sm:text-xs text-slate-500">Catalog Linked</span>
+            <p className="font-mono text-sm sm:text-base font-bold text-slate-900 tabular-nums">
+              {allResetters.filter((r) => Boolean(r.downloadUrl)).length}/{allResetters.length}
             </p>
           </div>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           {tab === 'orders' && (
             <div className="space-y-4">
               {orders.length === 0 ? (
@@ -463,11 +545,25 @@ export function AdminDashboardModal({
 
           {tab === 'resetters' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Left Form: Add or Edit Any Catalog Package */}
               <form
-                onSubmit={handleAddResetter}
-                className="lg:col-span-6 space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-5"
+                onSubmit={handleSaveResetter}
+                className="lg:col-span-6 space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-5 h-fit"
               >
-                <h3 className="text-sm font-bold text-slate-900">Add New Epson Resetter</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-slate-900">
+                    {editingId ? 'Edit Catalog Package & Automation Links' : 'Add New Epson Resetter'}
+                  </h3>
+                  {editingId && (
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="text-xs font-medium text-slate-500 hover:text-slate-900"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -477,7 +573,7 @@ export function AdminDashboardModal({
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Epson L3255 / L3260 AdjProg"
+                    placeholder="e.g. Epson L3210 / L3250 / L1210 Series AdjProg"
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
                     required
                   />
@@ -517,13 +613,13 @@ export function AdminDashboardModal({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Supported Models (comma-separated)
+                    Supported Models (comma-separated, up to 30)
                   </label>
                   <input
                     type="text"
                     value={modelsInput}
                     onChange={(e) => setModelsInput(e.target.value)}
-                    placeholder="e.g. L3255, L3256, L3260"
+                    placeholder="e.g. L3210, L3250, L3251, L3260, L5290"
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-mono text-slate-900 placeholder:font-sans"
                     required
                   />
@@ -581,17 +677,40 @@ export function AdminDashboardModal({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Optional Direct Download URL
-                  </label>
-                  <input
-                    type="url"
-                    value={downloadUrl}
-                    onChange={(e) => setDownloadUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-                  />
+                {/* Automation Delivery Links */}
+                <div className="rounded-lg border border-slate-200 bg-white p-3.5 space-y-3">
+                  <p className="text-xs font-bold text-slate-900">
+                    Automated Post-Payment Delivery Links
+                  </p>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Resetter Download URL (.zip / Google Drive / MediaFire)
+                    </label>
+                    <input
+                      type="url"
+                      value={downloadUrl}
+                      onChange={(e) => setDownloadUrl(e.target.value)}
+                      placeholder="https://drive.google.com/file/d/..."
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      PDF Instructions URL (optional custom PDF guide)
+                    </label>
+                    <input
+                      type="url"
+                      value={instructionsPdfUrl}
+                      onChange={(e) => setInstructionsPdfUrl(e.target.value)}
+                      placeholder="https://.../epson-reset-guide.pdf (blank = auto-generated PDF)"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900"
+                    />
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Unlocked automatically in &ldquo;My Downloads&rdquo; right after Paystack
+                      verifies payment. If PDF URL is blank, customers get an auto-generated PDF
+                      guide.
+                    </p>
+                  </div>
                 </div>
 
                 <div>
@@ -608,6 +727,16 @@ export function AdminDashboardModal({
                   />
                 </div>
 
+                <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={popular}
+                    onChange={(e) => setPopular(e.target.checked)}
+                    className="rounded border-slate-300 text-[#003399] focus:ring-[#003399]"
+                  />
+                  Mark as &ldquo;Most Requested&rdquo; in public catalog
+                </label>
+
                 {formError && <p className="text-xs font-medium text-rose-700">{formError}</p>}
                 {formSuccess && (
                   <p className="text-xs font-medium text-emerald-700">{formSuccess}</p>
@@ -618,46 +747,121 @@ export function AdminDashboardModal({
                   disabled={savingResetter}
                   className="inline-flex items-center gap-2 rounded-lg bg-[#003399] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#00287A] transition-colors disabled:opacity-60"
                 >
-                  <Plus className="h-4 w-4" />
-                  {savingResetter ? 'Publishing...' : 'Publish Resetter to Catalog'}
+                  {editingId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {savingResetter
+                    ? 'Saving...'
+                    : editingId
+                    ? 'Save Package Changes'
+                    : 'Publish Resetter to Catalog'}
                 </button>
               </form>
 
+              {/* Right Column: Full Existing + Custom Catalog with Edit & Automation Indicators */}
               <div className="lg:col-span-6 space-y-3">
-                <h3 className="text-sm font-bold text-slate-900">
-                  Admin-Added Resetters ({customResetters.length})
-                </h3>
-                {customResetters.length === 0 ? (
-                  <p className="text-xs text-slate-500">
-                    All 12 built-in Epson packages are live in the catalog. Any new resetters you
-                    publish on the left will appear here and immediately in the public catalog.
-                  </p>
-                ) : (
-                  customResetters.map((pkg) => (
-                    <div
-                      key={pkg.id}
-                      className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{pkg.title}</p>
-                        <p className="mt-0.5 font-mono text-xs text-slate-600">
-                          {pkg.allSupportedModels.join(' · ')}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Resetter KSh {pkg.priceKsh} · AnyDesk KSh {pkg.remoteResetKsh}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => adminDeleteResetter(pkg.id)}
-                        aria-label={`Delete ${pkg.title}`}
-                        className="rounded-md border border-slate-200 p-2 text-slate-400 hover:text-rose-700 hover:border-rose-200"
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-slate-900">
+                    All Catalog Packages ({filteredAdminCatalog.length})
+                  </h3>
+                  <div className="relative w-full sm:w-56">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={catalogSearch}
+                      onChange={(e) => setCatalogSearch(e.target.value)}
+                      placeholder="Filter catalog to edit..."
+                      className="w-full rounded-lg border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 max-h-[620px] overflow-y-auto pr-1">
+                  {filteredAdminCatalog.map((pkg) => {
+                    const isBuiltIn = BUILT_IN_IDS.has(pkg.id);
+                    const isSavedInDb = firestoreResetterIds.has(pkg.id);
+                    const isEditingThis = editingId === pkg.id;
+
+                    return (
+                      <div
+                        key={pkg.id}
+                        className={`flex items-start justify-between gap-3 rounded-lg border p-3.5 transition-colors ${
+                          isEditingThis
+                            ? 'border-[#003399] bg-[#003399]/5'
+                            : 'border-slate-200 bg-white'
+                        }`}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))
-                )}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-900 truncate">
+                              {pkg.title}
+                            </p>
+                            <span className="text-[11px] font-mono text-slate-500">
+                              {isBuiltIn ? (isSavedInDb ? 'Edited' : 'Built-in') : 'Custom'}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 font-mono text-[11px] text-slate-600 line-clamp-1">
+                            {pkg.allSupportedModels.join(' · ')}
+                          </p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                            <span className="font-mono font-medium text-slate-700">
+                              KSh {pkg.priceKsh} / AnyDesk KSh {pkg.remoteResetKsh}
+                            </span>
+                            {pkg.downloadUrl ? (
+                              <span className="inline-flex items-center gap-1 font-medium text-emerald-700">
+                                <Link2 className="h-3 w-3" />
+                                Download linked
+                              </span>
+                            ) : (
+                              <span className="text-amber-700">No download URL</span>
+                            )}
+                            {pkg.instructionsPdfUrl && (
+                              <span className="inline-flex items-center gap-1 font-medium text-[#003399]">
+                                <FileText className="h-3 w-3" />
+                                Custom PDF
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(pkg)}
+                            aria-label={`Edit ${pkg.title}`}
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 hover:border-[#003399] hover:text-[#003399]"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Edit
+                          </button>
+
+                          {isSavedInDb && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (editingId === pkg.id) resetForm();
+                                void adminDeleteResetter(pkg.id);
+                              }}
+                              title={
+                                isBuiltIn
+                                  ? 'Revert to built-in default'
+                                  : 'Delete custom resetter'
+                              }
+                              aria-label={
+                                isBuiltIn ? `Revert ${pkg.title}` : `Delete ${pkg.title}`
+                              }
+                              className="rounded-md border border-slate-200 p-1.5 text-slate-400 hover:text-rose-700 hover:border-rose-200"
+                            >
+                              {isBuiltIn ? (
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

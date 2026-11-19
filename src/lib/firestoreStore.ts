@@ -57,6 +57,7 @@ export interface ResetterFormInput {
   countersSupported: string[];
   notes: string;
   downloadUrl?: string;
+  instructionsPdfUrl?: string;
   popular?: boolean;
 }
 
@@ -179,7 +180,7 @@ export async function adminSaveResetter(
   const allModels = input.allSupportedModels
     .map((m) => m.trim().toUpperCase().slice(0, 30))
     .filter(Boolean)
-    .slice(0, 25);
+    .slice(0, 30);
 
   const primaryModels = (input.primaryModels.length > 0 ? input.primaryModels : allModels.slice(0, 4))
     .map((m) => m.trim().toUpperCase().slice(0, 30))
@@ -190,6 +191,9 @@ export async function adminSaveResetter(
     .map((c) => c.trim().slice(0, 60))
     .filter(Boolean)
     .slice(0, 6);
+
+  const cleanDownloadUrl = (input.downloadUrl ?? '').trim().slice(0, 500);
+  const cleanPdfUrl = (input.instructionsPdfUrl ?? '').trim().slice(0, 500);
 
   const docPayload: Record<string, unknown> = {
     title: input.title.trim().slice(0, 140),
@@ -204,13 +208,11 @@ export async function adminSaveResetter(
     fileSize: input.fileSize.trim().slice(0, 30) || '3.8 MB (.zip)',
     countersSupported: counters.length > 0 ? counters : ['Main pad counter'],
     notes: input.notes.trim().slice(0, 500),
+    downloadUrl: cleanDownloadUrl,
+    instructionsPdfUrl: cleanPdfUrl,
     popular: Boolean(input.popular),
     updatedAt: serverTimestamp(),
   };
-
-  if (input.downloadUrl && input.downloadUrl.trim()) {
-    docPayload.downloadUrl = input.downloadUrl.trim().slice(0, 500);
-  }
 
   try {
     if (isNew) {
@@ -237,6 +239,8 @@ export async function adminSaveResetter(
     fileSize: docPayload.fileSize as string,
     countersSupported: docPayload.countersSupported as string[],
     notes: docPayload.notes as string,
+    downloadUrl: cleanDownloadUrl || undefined,
+    instructionsPdfUrl: cleanPdfUrl || undefined,
     popular: Boolean(input.popular),
   };
 }

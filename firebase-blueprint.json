@@ -25,7 +25,7 @@
         },
         "allSupportedModels": {
           "type": "array",
-          "description": "Up to 25 supported Epson model codes"
+          "description": "Up to 30 supported Epson model codes"
         },
         "priceKsh": {
           "type": "number"
@@ -54,6 +54,10 @@
           "maxLength": 500
         },
         "downloadUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "instructionsPdfUrl": {
           "type": "string",
           "maxLength": 500
         },

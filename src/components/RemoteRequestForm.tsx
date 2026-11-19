@@ -294,10 +294,10 @@ export function RemoteRequestForm({
     <form
       onSubmit={handlePaystackOrder}
       noValidate
-      className="rounded-xl border border-slate-200 bg-white p-6 sm:p-8 space-y-5"
+      className="rounded-xl border border-slate-200 bg-white p-4 sm:p-8 space-y-5"
     >
       <div>
-        <h3 className="text-xl font-bold tracking-tight text-slate-900">
+        <h3 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
           Pay Online with Paystack or Order via WhatsApp
         </h3>
         <p className="mt-1 text-sm text-slate-600">
@@ -308,11 +308,11 @@ export function RemoteRequestForm({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-1 p-1 bg-slate-100 rounded-lg">
         <button
           type="button"
           onClick={() => setServiceMode('remote')}
-          className={`px-3 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+          className={`min-h-[42px] px-3 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
             serviceMode === 'remote'
               ? 'bg-white text-slate-900 shadow-xs'
               : 'text-slate-600 hover:text-slate-900'
@@ -323,7 +323,7 @@ export function RemoteRequestForm({
         <button
           type="button"
           onClick={() => setServiceMode('download')}
-          className={`px-3 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+          className={`min-h-[42px] px-3 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
             serviceMode === 'download'
               ? 'bg-white text-slate-900 shadow-xs'
               : 'text-slate-600 hover:text-slate-900'
@@ -344,7 +344,7 @@ export function RemoteRequestForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Brian Kamau"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
+            className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
             required
           />
         </div>
@@ -359,7 +359,7 @@ export function RemoteRequestForm({
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="0712 345 678"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-mono text-slate-900 placeholder:font-sans placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
+            className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-base sm:text-sm font-mono text-slate-900 placeholder:font-sans placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
             required
           />
         </div>
@@ -376,7 +376,7 @@ export function RemoteRequestForm({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
+            className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
             required
           />
         </div>
@@ -391,7 +391,7 @@ export function RemoteRequestForm({
             value={printerModel}
             onChange={(e) => setPrinterModel(e.target.value)}
             placeholder="e.g. L3210, L3110, L805, M200"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-mono text-slate-900 placeholder:font-sans placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
+            className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-base sm:text-sm font-mono text-slate-900 placeholder:font-sans placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
             required
           />
         </div>
@@ -411,7 +411,7 @@ export function RemoteRequestForm({
             value={anydeskId}
             onChange={(e) => setAnydeskId(e.target.value)}
             placeholder="e.g. 482 910 331"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-mono text-slate-900 placeholder:font-sans placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
+            className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-base sm:text-sm font-mono text-slate-900 placeholder:font-sans placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
           />
         </div>
       )}
@@ -456,7 +456,7 @@ export function RemoteRequestForm({
         <button
           type="submit"
           disabled={isProcessing}
-          className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[#003399] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#00287A] transition-colors whitespace-nowrap shrink-0 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
+          className="min-h-[46px] flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-[#003399] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#00287A] transition-colors whitespace-nowrap shrink-0 disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
         >
           {isProcessing ? (
             <>
@@ -475,7 +475,7 @@ export function RemoteRequestForm({
           href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 bg-white px-4 py-2.5 text-sm font-medium text-emerald-800 hover:bg-emerald-50 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+          className="min-h-[46px] inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 bg-white px-4 py-2.5 text-sm font-medium text-emerald-800 hover:bg-emerald-50 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
         >
           <MessageCircle className="h-4 w-4" />
           Order via WhatsApp

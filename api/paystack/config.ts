@@ -13,11 +13,17 @@ export default function handler(req: VercelReq, res: VercelRes) {
     return;
   }
 
-  const publicKey = process.env.PAYSTACK_PUBLIC_KEY || process.env.VITE_PAYSTACK_PUBLIC_KEY || '';
-  const hasSecretKey = Boolean(process.env.PAYSTACK_SECRET_KEY);
+  const publicKey = (
+    process.env.PAYSTACK_PUBLIC_KEY ||
+    process.env.VITE_PAYSTACK_PUBLIC_KEY ||
+    ''
+  ).trim();
+  const secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim();
 
   res.status(200).json({
-    configured: Boolean(publicKey && hasSecretKey),
+    configured: Boolean(publicKey && secretKey),
+    hasPublicKey: Boolean(publicKey),
+    hasSecretKey: Boolean(secretKey),
     publicKey,
   });
 }

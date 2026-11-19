@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
+  BookOpen,
   Check,
   MessageCircle,
   Search,
@@ -41,10 +42,12 @@ import { useSeoHead } from './hooks/useSeoHead';
 import { buildWhatsAppChatUrl } from './lib/paystack';
 import {
   auth,
+  completeRedirectSignInIfPresent,
   db,
   isAdminUser,
   signInWithGoogle,
   signOutUser,
+  syncCustomerProfile,
 } from './lib/firebase';
 import { saveOrderToFirestore } from './lib/firestoreStore';
 
@@ -111,20 +114,36 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerTab, setDrawerTab] = useState<'cart' | 'orders'>('cart');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [customResetters, setCustomResetters] = useState<ResetterPackage[]>([]);
+  const [showAllModelsMobile, setShowAllModelsMobile] = useState(false);
 
   const isAdmin = isAdminUser(currentUser);
-  const allResetters = useMemo(
-    () => [...customResetters, ...RESETTER_CATALOG],
+
+  const firestoreResetterIds = useMemo(
+    () => new Set(customResetters.map((pkg) => pkg.id)),
     [customResetters]
   );
 
-  useSeoHead(searchQuery);
+  const allResetters = useMemo(() => {
+    const overrideMap = new Map(customResetters.map((pkg) => [pkg.id, pkg]));
+    const mergedBuiltIn = RESETTER_CATALOG.map((pkg) => overrideMap.get(pkg.id) ?? pkg);
+    const builtInIds = new Set(RESETTER_CATALOG.map((pkg) => pkg.id));
+    const brandNewCustom = customResetters.filter((pkg) => !builtInIds.has(pkg.id));
+    return [...brandNewCustom, ...mergedBuiltIn];
+  }, [customResetters]);
+
+  useSeoHead(searchQuery, allResetters);
 
   useEffect(() => {
+    void completeRedirectSignInIfPresent();
     const unsubAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
+      if (user) {
+        setAuthError(null);
+        void syncCustomerProfile(user).catch(() => {});
+      }
     });
     return () => unsubAuth();
   }, []);
@@ -135,6 +154,9 @@ export default function App() {
       (snap) => {
         const list: ResetterPackage[] = snap.docs.map((d) => {
           const data = d.data();
+          const rawDownload = typeof data.downloadUrl === 'string' ? data.downloadUrl.trim() : '';
+          const rawPdf =
+            typeof data.instructionsPdfUrl === 'string' ? data.instructionsPdfUrl.trim() : '';
           return {
             id: d.id,
             title: String(data.title || 'Epson AdjProg'),
@@ -153,6 +175,8 @@ export default function App() {
               ? data.countersSupported
               : ['Main pad counter'],
             notes: String(data.notes || ''),
+            downloadUrl: rawDownload || undefined,
+            instructionsPdfUrl: rawPdf || undefined,
             popular: Boolean(data.popular),
           };
         });
@@ -245,6 +269,8 @@ export default function App() {
           type,
           unitPriceKsh,
           quantity: 1,
+          downloadUrl: pkg.downloadUrl,
+          instructionsPdfUrl: pkg.instructionsPdfUrl,
         },
       ];
     });
@@ -285,10 +311,14 @@ export default function App() {
   };
 
   const handleSignIn = async () => {
+    setAuthError(null);
     try {
       await signInWithGoogle();
     } catch (err) {
-      console.error('Google sign-in cancelled or failed:', err);
+      const msg =
+        err instanceof Error ? err.message : 'Google Sign-In could not be completed.';
+      setAuthError(msg);
+      setDrawerOpen(true);
     }
   };
 
@@ -368,26 +398,26 @@ export default function App() {
       <main id="top">
         {/* Hero Section */}
         <section className="border-b border-slate-200 bg-white">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 lg:py-16">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-stretch">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12 lg:py-16">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch">
               <div className="lg:col-span-6 flex flex-col justify-center">
                 <p className="text-xs font-medium text-slate-500">
-                  Independent Epson Adjustment Program Portal · Instant Checkout &amp; Downloads
+                  Independent Epson Adjustment Program Portal · Instant Downloads
                 </p>
 
                 <h1
-                  className="mt-3 font-display font-bold tracking-tight text-slate-900 leading-[1.1] max-w-xl"
+                  className="mt-2.5 sm:mt-3 font-display font-bold tracking-tight text-slate-900 leading-[1.1] max-w-xl"
                   style={{
-                    fontSize: 'clamp(2.25rem, 4vw, 3.25rem)',
+                    fontSize: 'clamp(1.85rem, 4vw, 3.25rem)',
                     textWrap: 'balance',
                   }}
                 >
                   Reset locked Epson printers back to 0% in minutes
                 </h1>
 
-                <p className="mt-5 text-[15px] sm:text-base leading-relaxed text-slate-600 max-w-xl">
+                <p className="mt-4 sm:mt-5 text-sm sm:text-base leading-relaxed text-slate-600 max-w-xl">
                   Clear alternating red lights and{' '}
-                  <span className="font-mono text-sm text-slate-900">
+                  <span className="font-mono text-xs sm:text-sm text-slate-900">
                     “A printer&apos;s ink pad is at the end of its service life”
                   </span>{' '}
                   errors across {TOTAL_SUPPORTED_MODELS}+ Epson L-Series, M-Series, Photo, A3, and
@@ -397,7 +427,7 @@ export default function App() {
 
                 <form
                   onSubmit={handleHeroSearchSubmit}
-                  className="mt-7 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 max-w-lg"
+                  className="mt-6 sm:mt-7 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 max-w-lg"
                 >
                   <div className="relative flex-1">
                     <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -405,22 +435,22 @@ export default function App() {
                       type="text"
                       value={heroQuickQuery}
                       onChange={(e) => setHeroQuickQuery(e.target.value)}
-                      placeholder="Enter model (e.g. L3210, L3110, L805, M200)"
+                      placeholder="Enter model (e.g. L3210, L3110, L805)"
                       aria-label="Search Epson printer model"
-                      className="w-full rounded-lg border border-slate-300 bg-white pl-10 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
+                      className="w-full min-h-[46px] rounded-lg border border-slate-300 bg-white pl-10 pr-4 py-3 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#003399] px-5 py-3 text-sm font-medium text-white hover:bg-[#00287A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
+                    className="min-h-[46px] inline-flex items-center justify-center gap-2 rounded-lg bg-[#003399] px-5 py-3 text-sm font-medium text-white hover:bg-[#00287A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
                   >
                     Find Resetter
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </form>
 
-                <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
-                  <span>Popular models:</span>
+                <div className="mt-4 sm:mt-5 flex flex-wrap items-center gap-x-3.5 gap-y-2 text-xs text-slate-500">
+                  <span>Popular:</span>
                   {['L3210', 'L3250', 'L3110', 'L805', 'L1800', 'M200'].map((model) => (
                     <a
                       key={model}
@@ -429,7 +459,7 @@ export default function App() {
                         e.preventDefault();
                         selectModelForSearch(model);
                       }}
-                      className="font-mono font-medium text-slate-700 hover:text-[#003399] underline underline-offset-4 transition-colors"
+                      className="py-1 font-mono font-medium text-slate-700 hover:text-[#003399] underline underline-offset-4 transition-colors"
                     >
                       {model}
                     </a>
@@ -487,13 +517,13 @@ export default function App() {
         </section>
 
         {/* Section 1: Interactive AdjProg Resetter Catalog */}
-        <section id="catalog" className="mx-auto max-w-6xl px-4 sm:px-6 py-16">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <section id="catalog" className="mx-auto max-w-6xl px-4 sm:px-6 py-12 sm:py-16">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6">
             <div>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
                 Complete Epson Adjustment Program Catalog
               </h2>
-              <p className="mt-2 text-[15px] text-slate-600 max-w-2xl">
+              <p className="mt-2 text-sm sm:text-[15px] text-slate-600 max-w-2xl">
                 Every Adjustment Program utility is KSh {RESETTER_PRICE_KSH} for instant download,
                 or add an AnyDesk remote reset session at KSh {ANYDESK_RESET_PRICE_KSH}.
               </p>
@@ -504,7 +534,7 @@ export default function App() {
           </div>
 
           {/* Filter Bar */}
-          <div className="mt-8 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+          <div className="mt-6 sm:mt-8 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 sm:gap-4">
             <div
               className="flex items-center gap-1 overflow-x-auto rounded-lg bg-slate-200/70 p-1"
               role="tablist"
@@ -519,7 +549,7 @@ export default function App() {
                     role="tab"
                     aria-selected={isActive}
                     onClick={() => setActiveSeries(tab.id)}
-                    className={`px-3.5 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399] ${
+                    className={`min-h-[38px] px-3.5 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399] ${
                       isActive
                         ? 'bg-white text-slate-900 shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
@@ -539,16 +569,16 @@ export default function App() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filter by model number..."
                 aria-label="Filter catalog by model number"
-                className="w-full rounded-lg border border-slate-300 bg-white pl-9 pr-9 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
+                className="w-full min-h-[44px] rounded-lg border border-slate-300 bg-white pl-9 pr-9 py-2 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#003399] focus:outline-none focus:ring-2 focus:ring-[#003399]/15"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
                   aria-label="Clear search filter"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1.5"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4" />
                 </button>
               )}
             </div>
@@ -556,7 +586,7 @@ export default function App() {
 
           {/* Catalog Grid */}
           {filteredCatalog.length === 0 ? (
-            <div className="mt-8 rounded-xl border border-slate-200 bg-white p-10 text-center">
+            <div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 sm:p-10 text-center">
               <p className="text-base font-semibold text-slate-900">
                 No resetter package matched “{searchQuery}”
               </p>
@@ -571,29 +601,29 @@ export default function App() {
                     setSearchQuery('');
                     setActiveSeries('all');
                   }}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   Reset Filters
                 </button>
                 <button
                   type="button"
                   onClick={() => handleBookInForm(searchQuery, 'download')}
-                  className="rounded-lg bg-[#003399] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#00287A] transition-colors"
+                  className="min-h-[44px] rounded-lg bg-[#003399] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#00287A] transition-colors"
                 >
                   Order Custom Model
                 </button>
               </div>
             </div>
           ) : (
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="mt-6 sm:mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
               {filteredCatalog.map((pkg) => (
                 <article
                   key={pkg.id}
-                  className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-6 transition-colors hover:border-slate-300"
+                  className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 sm:p-6 transition-colors hover:border-slate-300"
                 >
                   <div>
-                    <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
-                      <span>
+                    <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
+                      <span className="truncate">
                         {pkg.seriesLabel} · {pkg.osSupport} · {pkg.fileSize}
                       </span>
                       {pkg.popular && (
@@ -603,13 +633,15 @@ export default function App() {
                       )}
                     </div>
 
-                    <h3 className="mt-2.5 text-lg font-bold tracking-tight text-slate-900">
+                    <h3 className="mt-2 text-base sm:text-lg font-bold tracking-tight text-slate-900">
                       {pkg.title}
                     </h3>
 
-                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{pkg.notes}</p>
+                    <p className="mt-1.5 sm:mt-2 text-sm leading-relaxed text-slate-600">
+                      {pkg.notes}
+                    </p>
 
-                    <div className="mt-4 border-t border-slate-100 pt-3.5">
+                    <div className="mt-3.5 sm:mt-4 border-t border-slate-100 pt-3">
                       <p className="text-xs text-slate-500 mb-1">Supported Models</p>
                       <p className="font-mono text-xs leading-relaxed text-slate-800">
                         {pkg.allSupportedModels.join(' · ')}
@@ -617,8 +649,8 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-slate-100 pt-4">
-                    <div>
+                  <div className="mt-5 sm:mt-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3.5 sm:gap-4 border-t border-slate-100 pt-4">
+                    <div className="flex items-baseline justify-between sm:block">
                       <span className="font-mono text-lg font-bold text-slate-900 tabular-nums">
                         KSh {pkg.priceKsh}
                       </span>
@@ -627,20 +659,20 @@ export default function App() {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-2 sm:flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() =>
                           handleAddToCart(pkg, pkg.primaryModels[0], 'download', true)
                         }
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#003399] px-3.5 py-2 text-xs font-medium text-white hover:bg-[#00287A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
+                        className="min-h-[44px] sm:min-h-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#003399] px-3.5 py-2.5 sm:py-2 text-xs font-medium text-white hover:bg-[#00287A] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
                       >
                         Buy KSh {pkg.priceKsh}
                       </button>
                       <button
                         type="button"
                         onClick={() => setSelectedPackage(pkg)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-900 hover:border-[#003399] hover:text-[#003399] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
+                        className="min-h-[44px] sm:min-h-0 inline-flex items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 sm:py-2 text-xs font-medium text-slate-900 hover:border-[#003399] hover:text-[#003399] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003399]"
                       >
                         Models &amp; Remote
                       </button>
@@ -651,16 +683,24 @@ export default function App() {
             </div>
           )}
 
-          {/* Crawlable Supported Epson Model Index */}
-          <div className="mt-12 border-t border-slate-200 pt-8">
-            <h3 className="text-sm font-semibold text-slate-900">
-              Direct Model Quick Index ({TOTAL_SUPPORTED_MODELS} Supported Epson Resetters)
-            </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Click any model code to jump straight to its verified Adjustment Program (AdjProg)
-              package.
-            </p>
-            <div className="mt-3.5 flex flex-wrap gap-x-3 gap-y-1.5 text-xs">
+          {/* Crawlable Supported Epson Model Index (Compact on Mobile, Full in DOM for SEO) */}
+          <div className="mt-10 sm:mt-12 border-t border-slate-200 pt-8">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">
+                  Direct Model Quick Index ({TOTAL_SUPPORTED_MODELS}+ Supported Epson Resetters)
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Tap any model code to jump straight to its verified Adjustment Program (AdjProg)
+                  package.
+                </p>
+              </div>
+            </div>
+            <div
+              className={`mt-3.5 flex flex-wrap gap-x-3 gap-y-2 text-xs transition-all ${
+                showAllModelsMobile ? '' : 'max-h-32 overflow-hidden sm:max-h-none'
+              }`}
+            >
               {allResetters.flatMap((pkg) => pkg.allSupportedModels).map((model, idx) => (
                 <a
                   key={`${model}-${idx}`}
@@ -675,6 +715,15 @@ export default function App() {
                 </a>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={() => setShowAllModelsMobile((prev) => !prev)}
+              className="mt-3 sm:hidden inline-flex items-center text-xs font-semibold text-[#003399] hover:underline"
+            >
+              {showAllModelsMobile
+                ? 'Show fewer models'
+                : `Show all ${TOTAL_SUPPORTED_MODELS}+ supported models`}
+            </button>
           </div>
         </section>
 
@@ -866,8 +915,8 @@ export default function App() {
         <FaqSection />
       </main>
 
-      {/* Quiet Footer */}
-      <footer className="border-t border-slate-200 bg-[#F8FAFC] py-10">
+      {/* Quiet Footer (Extra bottom clearance on mobile for sticky bottom thumb bar) */}
+      <footer className="border-t border-slate-200 bg-[#F8FAFC] pt-10 pb-24 md:py-10">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
             <p className="font-display text-base font-bold text-slate-900">Epson Resetters</p>
@@ -877,7 +926,7 @@ export default function App() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 text-xs font-medium text-slate-600">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-xs font-medium text-slate-600">
             <a href="#catalog" className="hover:text-slate-900 transition-colors">
               Catalog
             </a>
@@ -949,8 +998,10 @@ export default function App() {
         onClose={() => setDrawerOpen(false)}
         cart={cart}
         orders={orders}
+        allResetters={allResetters}
         currentUser={currentUser}
         isAdmin={isAdmin}
+        authError={authError}
         onSignIn={handleSignIn}
         onSignOut={handleSignOut}
         onOpenAdmin={() => setAdminOpen(true)}
@@ -963,7 +1014,8 @@ export default function App() {
         <AdminDashboardModal
           isOpen={adminOpen}
           adminEmail={currentUser.email}
-          customResetters={customResetters}
+          allResetters={allResetters}
+          firestoreResetterIds={firestoreResetterIds}
           onClose={() => setAdminOpen(false)}
         />
       )}
@@ -973,13 +1025,60 @@ export default function App() {
         <button
           type="button"
           onClick={() => setAdminOpen(true)}
-          className="fixed bottom-5 left-5 z-40 inline-flex h-11 items-center gap-2 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white shadow-lg hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+          className="fixed bottom-20 left-4 md:bottom-5 md:left-5 z-40 inline-flex h-11 items-center gap-2 rounded-full bg-slate-900 px-4 text-xs font-semibold text-white shadow-lg hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
         >
           Admin Console
         </button>
       )}
 
-      {/* Floating Chat with us WhatsApp Button */}
+      {/* Mobile-First Sticky Bottom Thumb Bar */}
+      <nav
+        aria-label="Mobile quick actions"
+        className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur-xs px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(15,23,42,0.06)]"
+      >
+        <div className="grid grid-cols-4 gap-1">
+          <a
+            href="#catalog"
+            className="flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-medium text-slate-700 active:bg-slate-100"
+          >
+            <Printer className="h-4 w-4 text-[#003399]" />
+            <span>Catalog</span>
+          </a>
+          <a
+            href="#how-it-works"
+            className="flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-medium text-slate-700 active:bg-slate-100"
+          >
+            <BookOpen className="h-4 w-4 text-slate-600" />
+            <span>Guide</span>
+          </a>
+          <button
+            type="button"
+            onClick={() => {
+              setDrawerTab(cartItemCount > 0 ? 'cart' : orders.length > 0 ? 'orders' : 'cart');
+              setDrawerOpen(true);
+            }}
+            className="flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-medium text-slate-700 active:bg-slate-100"
+          >
+            <ShoppingBag className="h-4 w-4 text-[#003399]" />
+            <span className="tabular-nums">
+              {cartItemCount > 0 ? `Cart (${cartItemCount})` : `Orders (${orders.length})`}
+            </span>
+          </button>
+          <a
+            href={buildWhatsAppChatUrl(
+              'Hello, I need help with an Epson printer resetter or AnyDesk remote reset.'
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-lg bg-[#15803D] text-[11px] font-semibold text-white active:bg-[#166534]"
+          >
+            <MessageCircle className="h-4 w-4" />
+            <span>WhatsApp</span>
+          </a>
+        </div>
+      </nav>
+
+      {/* Desktop Floating Chat with us WhatsApp Button */}
       <a
         href={buildWhatsAppChatUrl(
           'Hello, I need help with an Epson printer resetter or AnyDesk remote reset.'
@@ -987,7 +1086,7 @@ export default function App() {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with us on WhatsApp"
-        className="fixed bottom-5 right-5 z-40 inline-flex h-11 items-center gap-2 rounded-full bg-[#15803D] px-4 text-sm font-semibold text-white shadow-lg hover:bg-[#166534] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803D]"
+        className="hidden md:inline-flex fixed bottom-5 right-5 z-40 h-11 items-center gap-2 rounded-full bg-[#15803D] px-4 text-sm font-semibold text-white shadow-lg hover:bg-[#166534] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803D]"
       >
         <MessageCircle className="h-4 w-4 shrink-0" />
         Chat with us

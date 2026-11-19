@@ -27,7 +27,7 @@ export default async function handler(req: VercelReq, res: VercelRes) {
     return;
   }
 
-  const secretKey = process.env.PAYSTACK_SECRET_KEY;
+  const secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim();
   if (!secretKey) {
     res.status(503).json({ verified: false, error: 'Paystack secret key is not configured.' });
     return;
