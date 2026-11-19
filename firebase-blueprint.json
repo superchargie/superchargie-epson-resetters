@@ -1,0 +1,234 @@
+{
+  "entities": {
+    "Resetter": {
+      "title": "Resetter",
+      "description": "An Epson Adjustment Program (AdjProg) resetter package available in the storefront catalog.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 140
+        },
+        "series": {
+          "type": "string",
+          "enum": ["ecotank-l", "photo-wide", "monochrome-m", "et-wf-legacy"]
+        },
+        "seriesLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "primaryModels": {
+          "type": "array",
+          "description": "Up to 8 headline model codes"
+        },
+        "allSupportedModels": {
+          "type": "array",
+          "description": "Up to 25 supported Epson model codes"
+        },
+        "priceKsh": {
+          "type": "number"
+        },
+        "remoteResetKsh": {
+          "type": "number"
+        },
+        "osSupport": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "connection": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "fileSize": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "countersSupported": {
+          "type": "array",
+          "description": "Up to 6 supported waste ink / EEPROM counters"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "downloadUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "popular": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "title",
+        "series",
+        "seriesLabel",
+        "primaryModels",
+        "allSupportedModels",
+        "priceKsh",
+        "remoteResetKsh",
+        "osSupport",
+        "connection",
+        "fileSize",
+        "countersSupported",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer purchase for an Epson AdjProg resetter or AnyDesk remote reset session.",
+      "type": "object",
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 128
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 30
+        },
+        "email": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 120
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["paystack", "whatsapp"]
+        },
+        "paymentRef": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 80
+        },
+        "anydeskId": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "itemsSummary": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 500
+        },
+        "models": {
+          "type": "array",
+          "description": "Up to 15 ordered model codes"
+        },
+        "totalKsh": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "paid", "in_progress", "completed", "cancelled"]
+        },
+        "whatsappForwarded": {
+          "type": "boolean"
+        },
+        "adminNotes": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "orderId",
+        "ownerUid",
+        "customerName",
+        "phone",
+        "email",
+        "paymentMethod",
+        "paymentRef",
+        "itemsSummary",
+        "models",
+        "totalKsh",
+        "status",
+        "whatsappForwarded",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CustomerProfile": {
+      "title": "CustomerProfile",
+      "description": "Authenticated customer record for admin CRM and order history.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 128
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "lastOrderAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "email", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/resetters/{resetterId}": {
+      "schema": { "$ref": "#/entities/Resetter" },
+      "description": "Dynamic Epson AdjProg catalog managed by admin martin.mbuco@gmail.com"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders and AnyDesk remote reset bookings"
+    },
+    "/customers/{uid}": {
+      "schema": { "$ref": "#/entities/CustomerProfile" },
+      "description": "Authenticated customer profiles for order management"
+    }
+  }
+}

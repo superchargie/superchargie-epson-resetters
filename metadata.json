@@ -1,0 +1,8 @@
+{
+  "name": "Mwash Cyber Epson Resetters",
+  "description": "Dedicated Epson Adjustment Program (AdjProg) resetter catalog, waste ink pad counter troubleshooting, and AnyDesk remote reset support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

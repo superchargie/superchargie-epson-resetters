@@ -1,0 +1,213 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 2 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Zero-DB-read admin check for list queries (Cost-Optimization Clause)
+    function isAdminEmail() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'martin.mbuco@gmail.com' ||
+        request.auth.token.email == 'izzlamartin@gmail.com'
+      );
+    }
+
+    function isAdmin() {
+      return isAdminEmail() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // --- Entity Validation Blueprints ---
+    function isValidResetter(data) {
+      return data.keys().hasAll([
+        'title', 'series', 'seriesLabel', 'primaryModels', 'allSupportedModels',
+        'priceKsh', 'remoteResetKsh', 'osSupport', 'connection', 'fileSize',
+        'countersSupported', 'notes', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'title', 'series', 'seriesLabel', 'primaryModels', 'allSupportedModels',
+        'priceKsh', 'remoteResetKsh', 'osSupport', 'connection', 'fileSize',
+        'countersSupported', 'notes', 'downloadUrl', 'popular', 'createdAt', 'updatedAt'
+      ])
+      && data.title is string && data.title.size() >= 4 && data.title.size() <= 140
+      && data.series in ['ecotank-l', 'photo-wide', 'monochrome-m', 'et-wf-legacy']
+      && data.seriesLabel is string && data.seriesLabel.size() >= 2 && data.seriesLabel.size() <= 40
+      && data.primaryModels is list && data.primaryModels.size() >= 1 && data.primaryModels.size() <= 8
+      && data.primaryModels[0] is string && data.primaryModels[0].size() <= 30
+      && data.allSupportedModels is list && data.allSupportedModels.size() >= 1 && data.allSupportedModels.size() <= 25
+      && data.allSupportedModels[0] is string && data.allSupportedModels[0].size() <= 30
+      && data.priceKsh is number && data.priceKsh >= 50 && data.priceKsh <= 50000
+      && data.remoteResetKsh is number && data.remoteResetKsh >= 50 && data.remoteResetKsh <= 50000
+      && data.osSupport is string && data.osSupport.size() >= 2 && data.osSupport.size() <= 60
+      && data.connection is string && data.connection.size() >= 2 && data.connection.size() <= 40
+      && data.fileSize is string && data.fileSize.size() >= 2 && data.fileSize.size() <= 30
+      && data.countersSupported is list && data.countersSupported.size() >= 1 && data.countersSupported.size() <= 6
+      && data.countersSupported[0] is string && data.countersSupported[0].size() <= 60
+      && data.notes is string && data.notes.size() >= 4 && data.notes.size() <= 500
+      && (!('downloadUrl' in data) || (data.downloadUrl is string && data.downloadUrl.size() <= 500))
+      && (!('popular' in data) || data.popular is bool)
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+        'orderId', 'ownerUid', 'customerName', 'phone', 'email',
+        'paymentMethod', 'paymentRef', 'itemsSummary', 'models',
+        'totalKsh', 'status', 'whatsappForwarded', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'orderId', 'ownerUid', 'customerName', 'phone', 'email',
+        'paymentMethod', 'paymentRef', 'anydeskId', 'itemsSummary', 'models',
+        'totalKsh', 'status', 'whatsappForwarded', 'adminNotes', 'createdAt', 'updatedAt'
+      ])
+      && data.orderId is string && data.orderId.size() >= 6 && data.orderId.size() <= 40 && data.orderId.matches('^[a-zA-Z0-9_\\-]+$')
+      && data.ownerUid is string && data.ownerUid.size() >= 6 && data.ownerUid.size() <= 128
+      && data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100
+      && data.phone is string && data.phone.size() >= 7 && data.phone.size() <= 30
+      && data.email is string && data.email.size() >= 5 && data.email.size() <= 120
+      && data.paymentMethod in ['paystack', 'whatsapp']
+      && data.paymentRef is string && data.paymentRef.size() >= 3 && data.paymentRef.size() <= 80
+      && (!('anydeskId' in data) || (data.anydeskId is string && data.anydeskId.size() <= 40))
+      && data.itemsSummary is string && data.itemsSummary.size() >= 3 && data.itemsSummary.size() <= 500
+      && data.models is list && data.models.size() >= 1 && data.models.size() <= 15
+      && data.models[0] is string && data.models[0].size() <= 30
+      && data.totalKsh is number && data.totalKsh >= 50 && data.totalKsh <= 500000
+      && data.status in ['pending', 'paid', 'in_progress', 'completed', 'cancelled']
+      && data.whatsappForwarded is bool
+      && (!('adminNotes' in data) || (data.adminNotes is string && data.adminNotes.size() <= 400))
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidCustomerProfile(data, uid) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'createdAt', 'updatedAt'])
+      && data.keys().hasOnly(['uid', 'displayName', 'email', 'phone', 'lastOrderAt', 'createdAt', 'updatedAt'])
+      && data.uid is string && data.uid == uid && data.uid.size() >= 6 && data.uid.size() <= 128
+      && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+      && data.email is string && data.email.size() >= 5 && data.email.size() <= 120
+      && (!('phone' in data) || (data.phone is string && data.phone.size() <= 30))
+      && (!('lastOrderAt' in data) || data.lastOrderAt is timestamp)
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    // --- Collection: /resetters/{resetterId} ---
+    // Public catalog reads; strictly Admin writes
+    match /resetters/{resetterId} {
+      allow get: if isValidId(resetterId);
+      allow list: if true;
+      allow create: if isVerifiedUser()
+        && isValidId(resetterId)
+        && isValidResetter(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow update: if isVerifiedUser()
+        && isValidId(resetterId)
+        && isValidResetter(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && isAdmin();
+      allow delete: if isVerifiedUser()
+        && isValidId(resetterId)
+        && isAdmin();
+    }
+
+    // --- Collection: /orders/{orderId} ---
+    // PII isolated to owner or Admin
+    match /orders/{orderId} {
+      allow get: if isVerifiedUser()
+        && isValidId(orderId)
+        && (existing().ownerUid == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser()
+        && (resource.data.ownerUid == request.auth.uid || isAdminEmail());
+      allow create: if isVerifiedUser()
+        && isValidId(orderId)
+        && isValidOrder(incoming())
+        && incoming().orderId == orderId
+        && incoming().ownerUid == request.auth.uid
+        && incoming().status in ['pending', 'paid']
+        && !('adminNotes' in incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(orderId)
+        && isValidOrder(incoming())
+        && incoming().orderId == existing().orderId
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Tier 1: Admin can update order status and notes
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminNotes', 'whatsappForwarded', 'updatedAt'])) ||
+          // Tier 2: Owner can only mark whatsappForwarded on non-terminal orders
+          (existing().ownerUid == request.auth.uid
+            && !(existing().status in ['completed', 'cancelled'])
+            && incoming().whatsappForwarded == true
+            && incoming().diff(existing()).affectedKeys().hasOnly(['whatsappForwarded', 'updatedAt']))
+        );
+      allow delete: if isVerifiedUser()
+        && isValidId(orderId)
+        && isAdmin();
+    }
+
+    // --- Collection: /customers/{uid} ---
+    // PII isolated to owner or Admin
+    match /customers/{uid} {
+      allow get: if isVerifiedUser()
+        && isValidId(uid)
+        && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdminEmail();
+      allow create: if isVerifiedUser()
+        && isValidId(uid)
+        && request.auth.uid == uid
+        && isValidCustomerProfile(incoming(), uid)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(uid)
+        && isValidCustomerProfile(incoming(), uid)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (request.auth.uid == uid && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'phone', 'lastOrderAt', 'updatedAt'])) ||
+          isAdmin()
+        );
+      allow delete: if isAdmin() && isValidId(uid);
+    }
+
+    // --- Collection: /admins/{uid} ---
+    match /admins/{uid} {
+      allow get: if isVerifiedUser() && isValidId(uid) && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+  }
+}
