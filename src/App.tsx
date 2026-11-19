@@ -47,6 +47,7 @@ import {
   signOutUser,
 } from './lib/firebase';
 import { saveOrderToFirestore } from './lib/firestoreStore';
+import { Analytics } from '@vercel/analytics/react';
 
 const HERO_IMAGE = '/src/assets/images/hero_epson_workshop_1795069829394.jpg';
 const GUIDE_IMAGE = '/src/assets/images/guide_usb_maintenance_1795069828830.jpg';
@@ -992,6 +993,7 @@ export default function App() {
         <MessageCircle className="h-4 w-4 shrink-0" />
         Chat with us
       </a>
+      <Analytics />
     </div>
   );
 }
